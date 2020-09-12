@@ -59,7 +59,7 @@ END;
             print $out_fh "\n";
 
             my $feature_id = $feature_to_id->{$feature};
-            print $out_fh "($id, $feature_id)";
+            print $out_fh "($feature_id, $id)";
         }
     }
     print $out_fh <<"END;";
