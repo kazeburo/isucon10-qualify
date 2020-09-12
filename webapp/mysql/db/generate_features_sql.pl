@@ -44,7 +44,7 @@ sub generate_sql {
 
     open(my $out_fh, "> $output_file") or die "Cant open $output_file:$!";
     print $out_fh <<"END;";
-INSET INTO $table_name (id, $id_column_name) VALUES
+INSERT INTO $table_name (id, $id_column_name) VALUES
 END;
     my $is_first = 1;
 
@@ -59,7 +59,7 @@ END;
             print $out_fh "\n";
 
             my $feature_id = $feature_to_id->{$feature};
-            print $out_fh "($id, $feature_id)";
+            print $out_fh "($feature_id, $id)";
         }
     }
     print $out_fh <<"END;";
