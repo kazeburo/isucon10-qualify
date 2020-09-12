@@ -32,6 +32,9 @@ var estateSQLConnectionData *MySQLConnectionEnv
 var chairSearchCondition ChairSearchCondition
 var estateSearchCondition EstateSearchCondition
 
+var searchChairLock sync.RWMutex
+var searchChairsCache map[string]ChairSearchResponse
+
 type InitializeResponse struct {
 	Language string `json:"language"`
 }
@@ -253,6 +256,11 @@ func init() {
 }
 
 func main() {
+	// init
+	searchChairLock.Lock()
+	searchChairsCache = make(map[string]ChairSearchResponse)
+	searchChairLock.Unlock()
+
 	// Echo instance
 	e := echo.New()
 	e.Debug = true
@@ -309,14 +317,18 @@ func main() {
 func initialize(c echo.Context) error {
 	sqlDir := filepath.Join("..", "mysql", "db")
 
-    // common 
+	// init
+	searchChairLock.Lock()
+	searchChairsCache = make(map[string]ChairSearchResponse)
+	searchChairLock.Unlock()
+
+	// common
 	path_common := []string{
 		filepath.Join(sqlDir, "0_Schema.sql"),
 	}
 	for _, p := range path_common {
 		sqlFile, _ := filepath.Abs(p)
 
-        // db chair
 		cmdStr := fmt.Sprintf("mysql -h %v -u %v -p%v -P %v %v < %v",
 			chairSQLConnectionData.Host,
 			chairSQLConnectionData.User,
@@ -330,7 +342,7 @@ func initialize(c echo.Context) error {
 			return c.NoContent(http.StatusInternalServerError)
 		}
 
-        // db estate
+		// db estate
 		cmdStr = fmt.Sprintf("mysql -h %v -u %v -p%v -P %v %v < %v",
 			estateSQLConnectionData.Host,
 			estateSQLConnectionData.User,
@@ -347,11 +359,11 @@ func initialize(c echo.Context) error {
 
 	path_estate := []string{
 		filepath.Join(sqlDir, "1_DummyEstateData.sql"),
-    }
+	}
 	for _, p := range path_estate {
 		sqlFile, _ := filepath.Abs(p)
 
-        // db estate
+		// db estate
 		cmdStr := fmt.Sprintf("mysql -h %v -u %v -p%v -P %v %v < %v",
 			estateSQLConnectionData.Host,
 			estateSQLConnectionData.User,
@@ -364,7 +376,7 @@ func initialize(c echo.Context) error {
 			c.Logger().Errorf("Initialize script error : %v", err)
 			return c.NoContent(http.StatusInternalServerError)
 		}
-    }
+	}
 
 	path_chair := []string{
 		filepath.Join(sqlDir, "2_DummyChairData.sql"),
@@ -372,7 +384,6 @@ func initialize(c echo.Context) error {
 	for _, p := range path_chair {
 		sqlFile, _ := filepath.Abs(p)
 
-        // db chair
 		cmdStr := fmt.Sprintf("mysql -h %v -u %v -p%v -P %v %v < %v",
 			chairSQLConnectionData.Host,
 			chairSQLConnectionData.User,
@@ -385,7 +396,7 @@ func initialize(c echo.Context) error {
 			c.Logger().Errorf("Initialize script error : %v", err)
 			return c.NoContent(http.StatusInternalServerError)
 		}
-    }
+	}
 
 	return c.JSON(http.StatusOK, InitializeResponse{
 		Language: "go",
@@ -477,6 +488,12 @@ func postChair(c echo.Context) error {
 			return c.NoContent(http.StatusInternalServerError)
 		}
 	}
+
+	// init
+	searchChairLock.Lock()
+	searchChairsCache = make(map[string]ChairSearchResponse)
+	searchChairLock.Unlock()
+
 	if err := tx.Commit(); err != nil {
 		c.Logger().Errorf("failed to commit tx: %v", err)
 		return c.NoContent(http.StatusInternalServerError)
@@ -487,6 +504,13 @@ func postChair(c echo.Context) error {
 func searchChairs(c echo.Context) error {
 	conditions := make([]string, 0)
 	params := make([]interface{}, 0)
+
+	qs := c.QueryString()
+	searchChairLock.RLock()
+	defer searchChairLock.RUnlock()
+	if cache, ok := searchChairsCache[qs]; ok {
+		return c.JSON(http.StatusOK, cache)
+	}
 
 	if c.QueryParam("priceRangeId") != "" {
 		chairPrice, err := getRange(chairSearchCondition.Price, c.QueryParam("priceRangeId"))
@@ -626,6 +650,10 @@ func searchChairs(c echo.Context) error {
 
 	res.Chairs = chairs
 
+	searchChairLock.Lock()
+	searchChairsCache[qs] = res
+	searchChairLock.Unlock()
+
 	return c.JSON(http.StatusOK, res)
 }
 
@@ -660,7 +688,7 @@ func buyChair(c echo.Context) error {
 		c.Echo().Logger.Errorf("chair stock update failed : %v", err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
-    rowsAffected , err := result.RowsAffected()
+	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		c.Echo().Logger.Errorf("chair stock update failed : %v", err)
 		return c.NoContent(http.StatusInternalServerError)
@@ -671,9 +699,9 @@ func buyChair(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
-    if rowsAffected == 0 {
+	if rowsAffected == 0 {
 		return c.NoContent(http.StatusNotFound)
-    }
+	}
 	return c.NoContent(http.StatusOK)
 }
 
