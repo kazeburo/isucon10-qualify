@@ -59,6 +59,7 @@ create index idx_kindstock on isuumo.chair(kind, stock, popularity desc);
 create index idx_color on isuumo.chair(color, stock, popularity desc);
 create index idx_heistopop on isuumo.chair(height, stock, popularity desc);
 
+create index idx_pop on isuumo.estate(popularity desc);
 create index idx_rentpop on isuumo.estate(rent,popularity desc);
 create index idx_rent on isuumo.estate(rent asc);
 create index idx_door_hei on isuumo.estate(door_height);
