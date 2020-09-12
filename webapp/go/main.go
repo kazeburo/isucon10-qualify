@@ -518,10 +518,11 @@ func searchChairs(c echo.Context) error {
 
 	qs := c.QueryString()
 	searchChairLock.RLock()
-	defer searchChairLock.RUnlock()
 	if cache, ok := searchChairsCache[qs]; ok {
+		searchChairLock.RUnlock()
 		return c.JSON(http.StatusOK, cache)
 	}
+	searchChairLock.RUnlock()
 
 	if c.QueryParam("priceRangeId") != "" {
 		chairPrice, err := getRange(chairSearchCondition.Price, c.QueryParam("priceRangeId"))
@@ -632,7 +633,7 @@ func searchChairs(c echo.Context) error {
 	searchCondition := strings.Join(conditions, " AND ")
 	limitOffset := " ORDER BY popularity DESC, id ASC LIMIT ? OFFSET ?"
 
-	var res ChairSearchResponse
+	res := ChairSearchResponse{}
 
 	var cntErr error
 	var wg sync.WaitGroup
@@ -662,8 +663,8 @@ func searchChairs(c echo.Context) error {
 	res.Chairs = chairs
 
 	searchChairLock.Lock()
+	defer searchChairLock.Unlock()
 	searchChairsCache[qs] = res
-	searchChairLock.Unlock()
 
 	return c.JSON(http.StatusOK, res)
 }
