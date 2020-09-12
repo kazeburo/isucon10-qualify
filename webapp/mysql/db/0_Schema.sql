@@ -3,6 +3,8 @@ CREATE DATABASE isuumo;
 
 DROP TABLE IF EXISTS isuumo.estate;
 DROP TABLE IF EXISTS isuumo.chair;
+DROP TABLE IF EXISTS isuumo.estate_feature;
+DROP TABLE IF EXISTS isuumo.chair_feature;
 
 CREATE TABLE isuumo.estate
 (
@@ -37,6 +39,20 @@ CREATE TABLE isuumo.chair
     stock       INTEGER         NOT NULL
 );
 
+CREATE TABLE isuumo.estate_feature
+(
+    id          INTEGER         NOT NULL PRIMARY KEY,
+    estate_id   INTEGER         NOT NULL,
+    INDEX (estate_id)
+);
+
+CREATE TABLE isuumo.chair_feature
+(
+    id          INTEGER         NOT NULL PRIMARY KEY,
+    chair_id    INTEGER         NOT NULL,
+    INDEX (chair_id)
+);
+
 create index idx_pricestock on isuumo.chair(price, stock);
 create index idx_pricestockpop on isuumo.chair(price, stock, popularity);
 create index idx_kindstock on isuumo.chair(kind, stock);
@@ -44,4 +60,3 @@ create index idx_color on isuumo.chair(color);
 
 create index idx_rentpop on isuumo.estate(rent,popularity);
 create index idx_rent on isuumo.estate(rent);
-
