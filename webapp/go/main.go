@@ -391,7 +391,7 @@ func initialize(c echo.Context) error {
 	}
 
 	cachedGetLowPricedChair = nil
-	cachedGetLowPricedChairMutex = sync.RWMutex()
+	cachedGetLowPricedChairMutex = sync.RWMutex{}
 
 	return c.JSON(http.StatusOK, InitializeResponse{
 		Language: "go",
@@ -693,7 +693,7 @@ func getChairSearchCondition(c echo.Context) error {
 
 func getLowPricedChair(c echo.Context) error {
 	if cachedGetLowPricedChair == nil {
-		chars := make([]Chair, 0)
+		chairs := make([]Chair, 0)
 		query := `SELECT * FROM chair WHERE stock > 0 ORDER BY price ASC, id ASC LIMIT ?`
 		err := dbChair.Select(&chairs, query, Limit)
 		if err != nil {
@@ -710,7 +710,7 @@ func getLowPricedChair(c echo.Context) error {
 	}
 	cachedGetLowPricedChairMutex.RLock()
 	response := ChairListResponse{Chairs: cachedGetLowPricedChair}
-	cachedGetLowPricedChairMutex.RUnLock()
+	cachedGetLowPricedChairMutex.RUnlock()
 
 	return c.JSON(http.StatusOK, response)
 }
