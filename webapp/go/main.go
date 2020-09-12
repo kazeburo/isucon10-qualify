@@ -914,7 +914,7 @@ func searchEstateNazotte(c echo.Context) error {
 		params = append(params, estate.ID)
 	}
 	searchCondition := strings.Join(conditions, " OR ")
-	err = db.Select(&estatesInPolygon, query+searchCondition, params)
+	err = db.Select(&estatesInPolygon, query+searchCondition, params...)
 
 	var re EstateSearchResponse
 	re.Estates = []Estate{}
