@@ -34,8 +34,13 @@ var estateSearchCondition EstateSearchCondition
 
 var searchChairLock sync.RWMutex
 var searchChairsCache map[string]ChairSearchResponse
-var cachedGetLowPricedChair []Chair
-var cachedGetLowPricedChairMutex sync.RWMutex
+var getLowPricedChairLock sync.RWMutex
+var getLowPricedChairCache []Chair
+
+var searchEstateLock sync.RWMutex
+var searchEstateCache map[string]EstateSearchResponse
+var getLowPricedEstateLock sync.RWMutex
+var getLowPricedEstateCache []Estate
 
 type InitializeResponse struct {
 	Language string `json:"language"`
@@ -263,6 +268,18 @@ func main() {
 	searchChairsCache = make(map[string]ChairSearchResponse)
 	searchChairLock.Unlock()
 
+	getLowPricedChairLock.Lock()
+	getLowPricedChairCache = nil
+	getLowPricedChairLock.Unlock()
+
+	searchEstateLock.Lock()
+	searchEstateCache = make(map[string]EstateSearchResponse)
+	searchEstateLock.Unlock()
+
+	getLowPricedEstateLock.Lock()
+	getLowPricedEstateCache = nil
+	getLowPricedEstateLock.Unlock()
+
 	// Echo instance
 	e := echo.New()
 	e.Debug = true
@@ -323,6 +340,18 @@ func initialize(c echo.Context) error {
 	searchChairLock.Lock()
 	searchChairsCache = make(map[string]ChairSearchResponse)
 	searchChairLock.Unlock()
+
+	getLowPricedChairLock.Lock()
+	getLowPricedChairCache = nil
+	getLowPricedChairLock.Unlock()
+
+	searchEstateLock.Lock()
+	searchEstateCache = make(map[string]EstateSearchResponse)
+	searchEstateLock.Unlock()
+
+	getLowPricedEstateLock.Lock()
+	getLowPricedEstateCache = nil
+	getLowPricedEstateLock.Unlock()
 
 	// common
 	path_common := []string{
@@ -401,9 +430,6 @@ func initialize(c echo.Context) error {
 			return c.NoContent(http.StatusInternalServerError)
 		}
 	}
-
-	cachedGetLowPricedChair = nil
-	cachedGetLowPricedChairMutex = sync.RWMutex{}
 
 	return c.JSON(http.StatusOK, InitializeResponse{
 		Language: "go",
@@ -505,9 +531,9 @@ func postChair(c echo.Context) error {
 		c.Logger().Errorf("failed to commit tx: %v", err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
-	cachedGetLowPricedChairMutex.Lock()
-	cachedGetLowPricedChair = nil
-	cachedGetLowPricedChairMutex.Unlock()
+	getLowPricedChairLock.Lock()
+	getLowPricedChairCache = nil
+	getLowPricedChairLock.Unlock()
 
 	return c.NoContent(http.StatusCreated)
 }
@@ -709,9 +735,9 @@ func buyChair(c echo.Context) error {
 	searchChairLock.Lock()
 	searchChairsCache = make(map[string]ChairSearchResponse)
 	searchChairLock.Unlock()
-	cachedGetLowPricedChairMutex.Lock()
-	cachedGetLowPricedChair = nil
-	cachedGetLowPricedChairMutex.Unlock()
+	getLowPricedChairLock.Lock()
+	getLowPricedChairCache = nil
+	getLowPricedChairLock.Unlock()
 
 	err = tx.Commit()
 	if err != nil {
@@ -730,7 +756,7 @@ func getChairSearchCondition(c echo.Context) error {
 }
 
 func getLowPricedChair(c echo.Context) error {
-	if cachedGetLowPricedChair == nil {
+	if getLowPricedChairCache == nil {
 		chairs := make([]Chair, 0)
 		query := `SELECT * FROM chair WHERE stock > 0 ORDER BY price ASC, id ASC LIMIT ?`
 		err := dbChair.Select(&chairs, query, Limit)
@@ -742,13 +768,13 @@ func getLowPricedChair(c echo.Context) error {
 			c.Logger().Errorf("getLowPricedChair DB execution error : %v", err)
 			return c.NoContent(http.StatusInternalServerError)
 		}
-		cachedGetLowPricedChairMutex.Lock()
-		cachedGetLowPricedChair = chairs
-		cachedGetLowPricedChairMutex.Unlock()
+		getLowPricedChairLock.Lock()
+		getLowPricedChairCache = chairs
+		getLowPricedChairLock.Unlock()
 	}
-	cachedGetLowPricedChairMutex.RLock()
-	response := ChairListResponse{Chairs: cachedGetLowPricedChair}
-	cachedGetLowPricedChairMutex.RUnlock()
+	getLowPricedChairLock.RLock()
+	response := ChairListResponse{Chairs: getLowPricedChairCache}
+	getLowPricedChairLock.RUnlock()
 
 	return c.JSON(http.StatusOK, response)
 }
@@ -848,12 +874,30 @@ func postEstate(c echo.Context) error {
 		c.Logger().Errorf("failed to commit tx: %v", err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
+
+	// init
+	searchEstateLock.Lock()
+	searchEstateCache = make(map[string]EstateSearchResponse)
+	searchEstateLock.Unlock()
+
+	getLowPricedEstateLock.Lock()
+	getLowPricedEstateCache = nil
+	getLowPricedEstateLock.Unlock()
+
 	return c.NoContent(http.StatusCreated)
 }
 
 func searchEstates(c echo.Context) error {
 	conditions := make([]string, 0)
 	params := make([]interface{}, 0)
+
+	qs := c.QueryString()
+	searchEstateLock.RLock()
+	if cache, ok := searchEstateCache[qs]; ok {
+		searchEstateLock.RUnlock()
+		return c.JSON(http.StatusOK, cache)
+	}
+	searchEstateLock.RUnlock()
 
 	if c.QueryParam("doorHeightRangeId") != "" {
 		doorHeight, err := getRange(estateSearchCondition.DoorHeight, c.QueryParam("doorHeightRangeId"))
@@ -964,23 +1008,35 @@ func searchEstates(c echo.Context) error {
 
 	res.Estates = estates
 
+	searchEstateLock.Lock()
+	defer searchEstateLock.Unlock()
+	searchEstateCache[qs] = res
+
 	return c.JSON(http.StatusOK, res)
 }
 
 func getLowPricedEstate(c echo.Context) error {
-	estates := make([]Estate, 0, Limit)
-	query := `SELECT * FROM estate ORDER BY rent ASC, id ASC LIMIT ?`
-	err := dbEstate.Select(&estates, query, Limit)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			c.Logger().Error("getLowPricedEstate not found")
-			return c.JSON(http.StatusOK, EstateListResponse{[]Estate{}})
+	if getLowPricedEstate == nil {
+		estates := make([]Estate, 0, Limit)
+		query := `SELECT * FROM estate ORDER BY rent ASC, id ASC LIMIT ?`
+		err := dbEstate.Select(&estates, query, Limit)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				c.Logger().Error("getLowPricedEstate not found")
+				return c.JSON(http.StatusOK, EstateListResponse{[]Estate{}})
+			}
+			c.Logger().Errorf("getLowPricedEstate DB execution error : %v", err)
+			return c.NoContent(http.StatusInternalServerError)
 		}
-		c.Logger().Errorf("getLowPricedEstate DB execution error : %v", err)
-		return c.NoContent(http.StatusInternalServerError)
+		getLowPricedEstateLock.Lock()
+		getLowPricedEstateCache = estates
+		getLowPricedEstateLock.Unlock()
 	}
+	getLowPricedEstateLock.RLock()
+	response := EstateListResponse{Estates: getLowPricedEstateCache}
+	getLowPricedEstateLock.RUnlock()
 
-	return c.JSON(http.StatusOK, EstateListResponse{Estates: estates})
+	return c.JSON(http.StatusOK, response)
 }
 
 func searchRecommendedEstateWithChair(c echo.Context) error {
