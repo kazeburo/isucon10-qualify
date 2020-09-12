@@ -32,6 +32,9 @@ var estateSQLConnectionData *MySQLConnectionEnv
 var chairSearchCondition ChairSearchCondition
 var estateSearchCondition EstateSearchCondition
 
+var cachedGetLowPricedChair []Chair
+var cachedGetLowPricedChairMutex sync.RWMutex
+
 type InitializeResponse struct {
 	Language string `json:"language"`
 }
@@ -309,14 +312,14 @@ func main() {
 func initialize(c echo.Context) error {
 	sqlDir := filepath.Join("..", "mysql", "db")
 
-    // common 
+	// common
 	path_common := []string{
 		filepath.Join(sqlDir, "0_Schema.sql"),
 	}
 	for _, p := range path_common {
 		sqlFile, _ := filepath.Abs(p)
 
-        // db chair
+		// db chair
 		cmdStr := fmt.Sprintf("mysql -h %v -u %v -p%v -P %v %v < %v",
 			chairSQLConnectionData.Host,
 			chairSQLConnectionData.User,
@@ -330,7 +333,7 @@ func initialize(c echo.Context) error {
 			return c.NoContent(http.StatusInternalServerError)
 		}
 
-        // db estate
+		// db estate
 		cmdStr = fmt.Sprintf("mysql -h %v -u %v -p%v -P %v %v < %v",
 			estateSQLConnectionData.Host,
 			estateSQLConnectionData.User,
@@ -347,11 +350,11 @@ func initialize(c echo.Context) error {
 
 	path_estate := []string{
 		filepath.Join(sqlDir, "1_DummyEstateData.sql"),
-    }
+	}
 	for _, p := range path_estate {
 		sqlFile, _ := filepath.Abs(p)
 
-        // db estate
+		// db estate
 		cmdStr := fmt.Sprintf("mysql -h %v -u %v -p%v -P %v %v < %v",
 			estateSQLConnectionData.Host,
 			estateSQLConnectionData.User,
@@ -364,7 +367,7 @@ func initialize(c echo.Context) error {
 			c.Logger().Errorf("Initialize script error : %v", err)
 			return c.NoContent(http.StatusInternalServerError)
 		}
-    }
+	}
 
 	path_chair := []string{
 		filepath.Join(sqlDir, "2_DummyChairData.sql"),
@@ -372,7 +375,7 @@ func initialize(c echo.Context) error {
 	for _, p := range path_chair {
 		sqlFile, _ := filepath.Abs(p)
 
-        // db chair
+		// db chair
 		cmdStr := fmt.Sprintf("mysql -h %v -u %v -p%v -P %v %v < %v",
 			chairSQLConnectionData.Host,
 			chairSQLConnectionData.User,
@@ -385,7 +388,10 @@ func initialize(c echo.Context) error {
 			c.Logger().Errorf("Initialize script error : %v", err)
 			return c.NoContent(http.StatusInternalServerError)
 		}
-    }
+	}
+
+	cachedGetLowPricedChair = nil
+	cachedGetLowPricedChairMutex = sync.RWMutex{}
 
 	return c.JSON(http.StatusOK, InitializeResponse{
 		Language: "go",
@@ -481,6 +487,10 @@ func postChair(c echo.Context) error {
 		c.Logger().Errorf("failed to commit tx: %v", err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
+	cachedGetLowPricedChairMutex.Lock()
+	cachedGetLowPricedChair = nil
+	cachedGetLowPricedChairMutex.Unlock()
+
 	return c.NoContent(http.StatusCreated)
 }
 
@@ -660,7 +670,7 @@ func buyChair(c echo.Context) error {
 		c.Echo().Logger.Errorf("chair stock update failed : %v", err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
-    rowsAffected , err := result.RowsAffected()
+	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		c.Echo().Logger.Errorf("chair stock update failed : %v", err)
 		return c.NoContent(http.StatusInternalServerError)
@@ -671,9 +681,9 @@ func buyChair(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
-    if rowsAffected == 0 {
+	if rowsAffected == 0 {
 		return c.NoContent(http.StatusNotFound)
-    }
+	}
 	return c.NoContent(http.StatusOK)
 }
 
@@ -682,19 +692,27 @@ func getChairSearchCondition(c echo.Context) error {
 }
 
 func getLowPricedChair(c echo.Context) error {
-	var chairs []Chair
-	query := `SELECT * FROM chair WHERE stock > 0 ORDER BY price ASC, id ASC LIMIT ?`
-	err := dbChair.Select(&chairs, query, Limit)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			c.Logger().Error("getLowPricedChair not found")
-			return c.JSON(http.StatusOK, ChairListResponse{[]Chair{}})
+	if cachedGetLowPricedChair == nil {
+		chairs := make([]Chair, 0)
+		query := `SELECT * FROM chair WHERE stock > 0 ORDER BY price ASC, id ASC LIMIT ?`
+		err := dbChair.Select(&chairs, query, Limit)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				c.Logger().Error("getLowPricedChair not found")
+				return c.JSON(http.StatusOK, ChairListResponse{[]Chair{}})
+			}
+			c.Logger().Errorf("getLowPricedChair DB execution error : %v", err)
+			return c.NoContent(http.StatusInternalServerError)
 		}
-		c.Logger().Errorf("getLowPricedChair DB execution error : %v", err)
-		return c.NoContent(http.StatusInternalServerError)
+		cachedGetLowPricedChairMutex.Lock()
+		cachedGetLowPricedChair = chairs
+		cachedGetLowPricedChairMutex.Unlock()
 	}
+	cachedGetLowPricedChairMutex.RLock()
+	response := ChairListResponse{Chairs: cachedGetLowPricedChair}
+	cachedGetLowPricedChairMutex.RUnlock()
 
-	return c.JSON(http.StatusOK, ChairListResponse{Chairs: chairs})
+	return c.JSON(http.StatusOK, response)
 }
 
 func getEstateDetail(c echo.Context) error {
