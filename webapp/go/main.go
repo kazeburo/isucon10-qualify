@@ -1016,7 +1016,7 @@ func searchEstates(c echo.Context) error {
 }
 
 func getLowPricedEstate(c echo.Context) error {
-	if getLowPricedEstate == nil {
+	if getLowPricedEstateCache == nil {
 		estates := make([]Estate, 0, Limit)
 		query := `SELECT * FROM estate ORDER BY rent ASC, id ASC LIMIT ?`
 		err := dbEstate.Select(&estates, query, Limit)
