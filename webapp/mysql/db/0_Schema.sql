@@ -63,8 +63,8 @@ create index idx_width on isuumo.chair(width);
 
 create index idx_pop on isuumo.estate(popularity desc);
 create index idx_rent on isuumo.estate(rent asc);
-create index idx_lat on isuumo.estate(latitude);
-create index idx_long on isuumo.estate(longitude);
+create index idx_lat on isuumo.estate(latitude, longitude);
+create index idx_long on isuumo.estate(longitude, latitude);
 create index idx_door_hei on isuumo.estate(door_height);
 create index idx_door_wid on isuumo.estate(door_width);
 create index idx_door_widhei on isuumo.estate(door_width, door_height, popularity desc);
