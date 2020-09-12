@@ -520,8 +520,8 @@ func searchChairs(c echo.Context) error {
 	}()
 
 	chairs := []Chair{}
-	params = append(params, perPage, page*perPage)
-	err = db.Select(&chairs, searchQuery+searchCondition+limitOffset, params...)
+	paramsQ := append(params, perPage, page*perPage)
+	err = db.Select(&chairs, searchQuery+searchCondition+limitOffset, paramsQ...)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return c.JSON(http.StatusOK, ChairSearchResponse{Count: 0, Chairs: []Chair{}})
@@ -797,8 +797,8 @@ func searchEstates(c echo.Context) error {
 	}()
 
 	estates := []Estate{}
-	params = append(params, perPage, page*perPage)
-	err = db.Select(&estates, searchQuery+searchCondition+limitOffset, params...)
+	paramsQ := append(params, perPage, page*perPage)
+	err = db.Select(&estates, searchQuery+searchCondition+limitOffset, paramsQ...)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return c.JSON(http.StatusOK, EstateSearchResponse{Count: 0, Estates: []Estate{}})
