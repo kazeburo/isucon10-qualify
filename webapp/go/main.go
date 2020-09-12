@@ -364,26 +364,37 @@ func postChair(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 	defer tx.Rollback()
-	for _, row := range records {
-		rm := RecordMapper{Record: row}
-		id := rm.NextInt()
-		name := rm.NextString()
-		description := rm.NextString()
-		thumbnail := rm.NextString()
-		price := rm.NextInt()
-		height := rm.NextInt()
-		width := rm.NextInt()
-		depth := rm.NextInt()
-		color := rm.NextString()
-		features := rm.NextString()
-		kind := rm.NextString()
-		popularity := rm.NextInt()
-		stock := rm.NextInt()
-		if err := rm.Err(); err != nil {
-			c.Logger().Errorf("failed to read record: %v", err)
-			return c.NoContent(http.StatusBadRequest)
+
+	recordsChunk := splitRecords(records, 1000)
+	for _, records := range recordsChunk {
+		query := "INSERT INTO chair(id, name, description, thumbnail, price, height, width, depth, color, features, kind, popularity, stock) VALUES "
+		values := make([]string, 0)
+		params := make([]interface{}, 0)
+		for _, row := range records {
+			rm := RecordMapper{Record: row}
+			id := rm.NextInt()
+			name := rm.NextString()
+			description := rm.NextString()
+			thumbnail := rm.NextString()
+			price := rm.NextInt()
+			height := rm.NextInt()
+			width := rm.NextInt()
+			depth := rm.NextInt()
+			color := rm.NextString()
+			features := rm.NextString()
+			kind := rm.NextString()
+			popularity := rm.NextInt()
+			stock := rm.NextInt()
+			if err := rm.Err(); err != nil {
+				c.Logger().Errorf("failed to read record: %v", err)
+				return c.NoContent(http.StatusBadRequest)
+			}
+			values = append(values, "(?,?,?,?,?,?,?,?,?,?,?,?,?)")
+			params = append(params, id, name, description, thumbnail, price, height, width, depth, color, features, kind, popularity, stock)
 		}
-		_, err := tx.Exec("INSERT INTO chair(id, name, description, thumbnail, price, height, width, depth, color, features, kind, popularity, stock) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)", id, name, description, thumbnail, price, height, width, depth, color, features, kind, popularity, stock)
+
+		insertValues := strings.Join(values, ",")
+		_, err := tx.Exec(query+insertValues, params...)
 		if err != nil {
 			c.Logger().Errorf("failed to insert chair: %v", err)
 			return c.NoContent(http.StatusInternalServerError)
@@ -1003,4 +1014,17 @@ func (cs Coordinates) coordinatesToText() string {
 		points = append(points, fmt.Sprintf("%f %f", c.Latitude, c.Longitude))
 	}
 	return fmt.Sprintf("'POLYGON((%s))'", strings.Join(points, ","))
+}
+
+func splitRecords(records [][]string, n int) [][][]string {
+	ret := make([][][]string, len(records)/n)
+
+	for i := 0; i < len(records); i += n {
+		end := i + n
+		if len(records) < end {
+			end = len(records)
+		}
+		ret = append(ret, records[i:end])
+	}
+	return ret
 }
