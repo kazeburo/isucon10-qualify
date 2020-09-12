@@ -291,14 +291,14 @@ func main() {
 	if err != nil {
 		e.Logger.Fatalf("chair DB connection failed : %v", err)
 	}
-	dbChair.SetMaxOpenConns(34)
+	dbChair.SetMaxOpenConns(10)
 	defer dbChair.Close()
 
 	dbEstate, err = estateSQLConnectionData.ConnectDB()
 	if err != nil {
 		e.Logger.Fatalf("estate DB connection failed : %v", err)
 	}
-	dbEstate.SetMaxOpenConns(34)
+	dbEstate.SetMaxOpenConns(10)
 	defer dbEstate.Close()
 
 	// Start server
