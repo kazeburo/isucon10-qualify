@@ -27,6 +27,8 @@ var db *sqlx.DB
 var mySQLConnectionData *MySQLConnectionEnv
 var chairSearchCondition ChairSearchCondition
 var estateSearchCondition EstateSearchCondition
+var chairFeatureToId map[string]int
+var estateFeatureToId map[string]int
 
 type InitializeResponse struct {
 	Language string `json:"language"`
@@ -229,6 +231,10 @@ func init() {
 		os.Exit(1)
 	}
 	json.Unmarshal(jsonText, &chairSearchCondition)
+	chairFeatureToId = make(map[string]int)
+	for id, f := range chairSearchCondition.Feature.List {
+		chairFeatureToId[f] = id
+	}
 
 	jsonText, err = ioutil.ReadFile("../fixture/estate_condition.json")
 	if err != nil {
@@ -236,6 +242,10 @@ func init() {
 		os.Exit(1)
 	}
 	json.Unmarshal(jsonText, &estateSearchCondition)
+	estateFeatureToId = make(map[string]int)
+	for id, f := range estateSearchCondition.Feature.List {
+		estateFeatureToId[f] = id
+	}
 }
 
 func main() {
@@ -386,6 +396,14 @@ func postChair(c echo.Context) error {
 			c.Logger().Errorf("failed to insert chair: %v", err)
 			return c.NoContent(http.StatusInternalServerError)
 		}
+		for _, feature_id := range featuresToId(chairFeatureToId, features) {
+			_, err := tx.Exec("INSERT INTO chair_feature (id, char_id) VALUES(?, ?)",
+				id, feature_id)
+			if err != nil {
+				c.Logger().Errorf("failed to insert chair_feature: %v", err)
+				return c.NoContent(http.StatusInternalServerError)
+			}
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		c.Logger().Errorf("failed to commit tx: %v", err)
@@ -477,6 +495,8 @@ func searchChairs(c echo.Context) error {
 	}
 
 	if c.QueryParam("features") != "" {
+		for _, feature_id := range featuresToId(chairFeatureToId, c.QueryParam("features")) {
+		}
 		for _, f := range strings.Split(c.QueryParam("features"), ",") {
 			conditions = append(conditions, "features LIKE CONCAT('%', ?, '%')")
 			params = append(params, f)
@@ -682,6 +702,14 @@ func postEstate(c echo.Context) error {
 		if err != nil {
 			c.Logger().Errorf("failed to insert estate: %v", err)
 			return c.NoContent(http.StatusInternalServerError)
+		}
+		for _, feature_id := range featuresToId(estateFeatureToId, features) {
+			_, err := tx.Exec("INSERT INTO estate_feature (id, estate_id) VALUES(?, ?)",
+				id, feature_id)
+			if err != nil {
+				c.Logger().Errorf("failed to insert estate_feature: %v", err)
+				return c.NoContent(http.StatusInternalServerError)
+			}
 		}
 	}
 	if err := tx.Commit(); err != nil {
@@ -976,4 +1004,15 @@ func (cs Coordinates) coordinatesToText() string {
 		points = append(points, fmt.Sprintf("%f %f", c.Latitude, c.Longitude))
 	}
 	return fmt.Sprintf("'POLYGON((%s))'", strings.Join(points, ","))
+}
+
+func featuresToId(toId map[string]int, features string) []int {
+	id_list := make([]int, 0)
+	for _, f := range strings.Split(features, ",") {
+		id, ok := toId[f]
+		if ok {
+			id_list = append(id_list, id)
+		}
+	}
+	return id_list
 }
