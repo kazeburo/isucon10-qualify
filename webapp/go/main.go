@@ -32,6 +32,8 @@ var estateSQLConnectionData *MySQLConnectionEnv
 var chairSearchCondition ChairSearchCondition
 var estateSearchCondition EstateSearchCondition
 
+var searchChairLock sync.RWMutex
+var searchChairsCache map[string]ChairSearchResponse
 var cachedGetLowPricedChair []Chair
 var cachedGetLowPricedChairMutex sync.RWMutex
 
@@ -256,6 +258,11 @@ func init() {
 }
 
 func main() {
+	// init
+	searchChairLock.Lock()
+	searchChairsCache = make(map[string]ChairSearchResponse)
+	searchChairLock.Unlock()
+
 	// Echo instance
 	e := echo.New()
 	e.Debug = true
@@ -311,6 +318,11 @@ func main() {
 
 func initialize(c echo.Context) error {
 	sqlDir := filepath.Join("..", "mysql", "db")
+
+	// init
+	searchChairLock.Lock()
+	searchChairsCache = make(map[string]ChairSearchResponse)
+	searchChairLock.Unlock()
 
 	// common
 	path_common := []string{
@@ -483,6 +495,12 @@ func postChair(c echo.Context) error {
 			return c.NoContent(http.StatusInternalServerError)
 		}
 	}
+
+	// init
+	searchChairLock.Lock()
+	searchChairsCache = make(map[string]ChairSearchResponse)
+	searchChairLock.Unlock()
+
 	if err := tx.Commit(); err != nil {
 		c.Logger().Errorf("failed to commit tx: %v", err)
 		return c.NoContent(http.StatusInternalServerError)
@@ -497,6 +515,13 @@ func postChair(c echo.Context) error {
 func searchChairs(c echo.Context) error {
 	conditions := make([]string, 0)
 	params := make([]interface{}, 0)
+
+	qs := c.QueryString()
+	searchChairLock.RLock()
+	defer searchChairLock.RUnlock()
+	if cache, ok := searchChairsCache[qs]; ok {
+		return c.JSON(http.StatusOK, cache)
+	}
 
 	if c.QueryParam("priceRangeId") != "" {
 		chairPrice, err := getRange(chairSearchCondition.Price, c.QueryParam("priceRangeId"))
@@ -635,6 +660,10 @@ func searchChairs(c echo.Context) error {
 	}
 
 	res.Chairs = chairs
+
+	searchChairLock.Lock()
+	searchChairsCache[qs] = res
+	searchChairLock.Unlock()
 
 	return c.JSON(http.StatusOK, res)
 }
