@@ -36,3 +36,12 @@ CREATE TABLE isuumo.chair
     popularity  INTEGER         NOT NULL,
     stock       INTEGER         NOT NULL
 );
+
+create index idx_pricestock on chair(price, stock);
+create index idx_pricestockpop on chair(price, stock, popularity);
+create index idx_kindstock on chair(kind, stock);
+create index idx_color on chair(color);
+
+create index idx_rentpop on estate(rent,popularity);
+create index idx_rent on estate(rent);
+
