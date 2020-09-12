@@ -3,6 +3,8 @@ CREATE DATABASE isuumo;
 
 DROP TABLE IF EXISTS isuumo.estate;
 DROP TABLE IF EXISTS isuumo.chair;
+DROP TABLE IF EXISTS isuumo.estate_feature;
+DROP TABLE IF EXISTS isuumo.chair_feature;
 
 CREATE TABLE isuumo.estate
 (
@@ -35,4 +37,18 @@ CREATE TABLE isuumo.chair
     kind        VARCHAR(64)     NOT NULL,
     popularity  INTEGER         NOT NULL,
     stock       INTEGER         NOT NULL
+);
+
+CREATE TABLE isuumo.estate_feature
+(
+    id          INTEGER         NOT NULL PRIMARY KEY,
+    estate_id   INTEGER         NOT NULL,
+    INDEX (estate_id)
+);
+
+CREATE TABLE isuumo.chair_feature
+(
+    id          INTEGER         NOT NULL PRIMARY KEY,
+    chair_id    INTEGER         NOT NULL,
+    INDEX (chair_id)
 );
