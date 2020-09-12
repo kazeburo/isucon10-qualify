@@ -41,16 +41,16 @@ CREATE TABLE isuumo.chair
 
 CREATE TABLE isuumo.estate_feature
 (
-    id          INTEGER         NOT NULL PRIMARY KEY,
+    id          INTEGER         NOT NULL,
     estate_id   INTEGER         NOT NULL,
-    INDEX (estate_id)
+    INDEX (estate_id, id)
 );
 
 CREATE TABLE isuumo.chair_feature
 (
-    id          INTEGER         NOT NULL PRIMARY KEY,
+    id          INTEGER         NOT NULL,
     chair_id    INTEGER         NOT NULL,
-    INDEX (chair_id)
+    INDEX (chair_id, id)
 );
 
 create index idx_pop on isuumo.chair(popularity desc);
@@ -67,4 +67,3 @@ create index idx_rent on isuumo.estate(rent asc);
 create index idx_door_hei on isuumo.estate(door_height);
 create index idx_door_wid on isuumo.estate(door_width);
 create index idx_door_widhei on isuumo.estate(door_width, door_height, popularity desc);
-
