@@ -806,6 +806,7 @@ func searchEstates(c echo.Context) error {
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
+	wg.Wait()
 	if cntErr != nil {
 		c.Logger().Errorf("searchEstates DB execution error : %v", cntErr)
 		return c.NoContent(http.StatusInternalServerError)
