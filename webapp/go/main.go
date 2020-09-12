@@ -34,8 +34,8 @@ var estateSearchCondition EstateSearchCondition
 
 var searchChairLock sync.RWMutex
 var searchChairsCache map[string]ChairSearchResponse
-var cachedGetLowPricedChair []Chair
-var cachedGetLowPricedChairMutex sync.RWMutex
+var getLowPricedChairLock sync.RWMutex
+var getLowPricedChairCache []Chair
 
 type InitializeResponse struct {
 	Language string `json:"language"`
@@ -402,8 +402,8 @@ func initialize(c echo.Context) error {
 		}
 	}
 
-	cachedGetLowPricedChair = nil
-	cachedGetLowPricedChairMutex = sync.RWMutex{}
+	getLowPricedChairCache = nil
+	getLowPricedChairLock = sync.RWMutex{}
 
 	return c.JSON(http.StatusOK, InitializeResponse{
 		Language: "go",
@@ -505,9 +505,9 @@ func postChair(c echo.Context) error {
 		c.Logger().Errorf("failed to commit tx: %v", err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
-	cachedGetLowPricedChairMutex.Lock()
-	cachedGetLowPricedChair = nil
-	cachedGetLowPricedChairMutex.Unlock()
+	getLowPricedChairLock.Lock()
+	getLowPricedChairCache = nil
+	getLowPricedChairLock.Unlock()
 
 	return c.NoContent(http.StatusCreated)
 }
@@ -709,9 +709,9 @@ func buyChair(c echo.Context) error {
 	searchChairLock.Lock()
 	searchChairsCache = make(map[string]ChairSearchResponse)
 	searchChairLock.Unlock()
-	cachedGetLowPricedChairMutex.Lock()
-	cachedGetLowPricedChair = nil
-	cachedGetLowPricedChairMutex.Unlock()
+	getLowPricedChairLock.Lock()
+	getLowPricedChairCache = nil
+	getLowPricedChairLock.Unlock()
 
 	err = tx.Commit()
 	if err != nil {
@@ -730,7 +730,7 @@ func getChairSearchCondition(c echo.Context) error {
 }
 
 func getLowPricedChair(c echo.Context) error {
-	if cachedGetLowPricedChair == nil {
+	if getLowPricedChairCache == nil {
 		chairs := make([]Chair, 0)
 		query := `SELECT * FROM chair WHERE stock > 0 ORDER BY price ASC, id ASC LIMIT ?`
 		err := dbChair.Select(&chairs, query, Limit)
@@ -742,13 +742,13 @@ func getLowPricedChair(c echo.Context) error {
 			c.Logger().Errorf("getLowPricedChair DB execution error : %v", err)
 			return c.NoContent(http.StatusInternalServerError)
 		}
-		cachedGetLowPricedChairMutex.Lock()
-		cachedGetLowPricedChair = chairs
-		cachedGetLowPricedChairMutex.Unlock()
+		getLowPricedChairLock.Lock()
+		getLowPricedChairCache = chairs
+		getLowPricedChairLock.Unlock()
 	}
-	cachedGetLowPricedChairMutex.RLock()
-	response := ChairListResponse{Chairs: cachedGetLowPricedChair}
-	cachedGetLowPricedChairMutex.RUnlock()
+	getLowPricedChairLock.RLock()
+	response := ChairListResponse{Chairs: getLowPricedChairCache}
+	getLowPricedChairLock.RUnlock()
 
 	return c.JSON(http.StatusOK, response)
 }
