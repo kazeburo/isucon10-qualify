@@ -704,6 +704,11 @@ func buyChair(c echo.Context) error {
 		c.Echo().Logger.Errorf("chair stock update failed : %v", err)
 		return c.NoContent(http.StatusInternalServerError)
 	}
+
+	searchChairLock.Lock()
+	searchChairsCache = make(map[string]ChairSearchResponse)
+	searchChairLock.Unlock()
+
 	err = tx.Commit()
 	if err != nil {
 		c.Echo().Logger.Errorf("transaction commit error : %v", err)
