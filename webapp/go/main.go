@@ -786,11 +786,14 @@ func searchEstates(c echo.Context) error {
 	limitOffset := " ORDER BY popularity DESC, id ASC LIMIT ? OFFSET ?"
 
 	var res EstateSearchResponse
-	err = db.Get(&res.Count, countQuery+searchCondition, params...)
-	if err != nil {
-		c.Logger().Errorf("searchEstates DB execution error : %v", err)
-		return c.NoContent(http.StatusInternalServerError)
-	}
+
+	var cntErr error
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		cntErr = db.Get(&res.Count, countQuery+searchCondition, params...)
+	}()
 
 	estates := []Estate{}
 	params = append(params, perPage, page*perPage)
@@ -800,6 +803,11 @@ func searchEstates(c echo.Context) error {
 			return c.JSON(http.StatusOK, EstateSearchResponse{Count: 0, Estates: []Estate{}})
 		}
 		c.Logger().Errorf("searchEstates DB execution error : %v", err)
+		return c.NoContent(http.StatusInternalServerError)
+	}
+
+	if cntErr != nil {
+		c.Logger().Errorf("searchEstates DB execution error : %v", cntErr)
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
