@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
@@ -508,11 +509,14 @@ func searchChairs(c echo.Context) error {
 	limitOffset := " ORDER BY popularity DESC, id ASC LIMIT ? OFFSET ?"
 
 	var res ChairSearchResponse
-	err = db.Get(&res.Count, countQuery+searchCondition, params...)
-	if err != nil {
-		c.Logger().Errorf("searchChairs DB execution error : %v", err)
-		return c.NoContent(http.StatusInternalServerError)
-	}
+
+	var cntErr error
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		cntErr = db.Get(&res.Count, countQuery+searchCondition, params...)
+	}()
 
 	chairs := []Chair{}
 	params = append(params, perPage, page*perPage)
@@ -522,6 +526,12 @@ func searchChairs(c echo.Context) error {
 			return c.JSON(http.StatusOK, ChairSearchResponse{Count: 0, Chairs: []Chair{}})
 		}
 		c.Logger().Errorf("searchChairs DB execution error : %v", err)
+		return c.NoContent(http.StatusInternalServerError)
+	}
+
+	wg.Wait()
+	if cntErr != nil {
+		c.Logger().Errorf("searchChairs DB execution error : %v", cntErr)
 		return c.NoContent(http.StatusInternalServerError)
 	}
 
