@@ -495,12 +495,18 @@ func searchChairs(c echo.Context) error {
 	}
 
 	if c.QueryParam("features") != "" {
+		q := "id IN (SELECT chair_id FROM chair_feature WHERE id IN ("
+		is_first := true
 		for _, feature_id := range featuresToId(chairFeatureToId, c.QueryParam("features")) {
+			if !is_first {
+				q += ","
+			}
+			is_first = false
+			q += "?"
+			params = append(params, feature_id)
 		}
-		for _, f := range strings.Split(c.QueryParam("features"), ",") {
-			conditions = append(conditions, "features LIKE CONCAT('%', ?, '%')")
-			params = append(params, f)
-		}
+		q += "))"
+		conditions = append(conditions, q)
 	}
 
 	if len(conditions) == 0 {
@@ -775,10 +781,18 @@ func searchEstates(c echo.Context) error {
 	}
 
 	if c.QueryParam("features") != "" {
-		for _, f := range strings.Split(c.QueryParam("features"), ",") {
-			conditions = append(conditions, "features like concat('%', ?, '%')")
-			params = append(params, f)
+		q := "id IN (SELECT estate_id FROM estate_feature WHERE id IN ("
+		is_first := true
+		for _, feature_id := range featuresToId(estateFeatureToId, c.QueryParam("features")) {
+			if !is_first {
+				q += ","
+			}
+			is_first = false
+			q += "?"
+			params = append(params, feature_id)
 		}
+		q += "))"
+		conditions = append(conditions, q)
 	}
 
 	if len(conditions) == 0 {
