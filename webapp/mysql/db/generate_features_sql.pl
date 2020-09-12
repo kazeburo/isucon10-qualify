@@ -55,7 +55,7 @@ END;
         my($id, $features) = split(/\s+/, $line);
         foreach my $feature (split(/\s*,\s*/, $features)) {
             print $out_fh ',' unless $is_first;
-            $is_first = 1;
+            $is_first = 0;
             print $out_fh "\n";
 
             my $feature_id = $feature_to_id->{$feature};
