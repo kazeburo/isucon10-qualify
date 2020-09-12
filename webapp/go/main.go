@@ -708,6 +708,9 @@ func buyChair(c echo.Context) error {
 	searchChairLock.Lock()
 	searchChairsCache = make(map[string]ChairSearchResponse)
 	searchChairLock.Unlock()
+	cachedGetLowPricedChairMutex.Lock()
+	cachedGetLowPricedChair = nil
+	cachedGetLowPricedChairMutex.Unlock()
 
 	err = tx.Commit()
 	if err != nil {
