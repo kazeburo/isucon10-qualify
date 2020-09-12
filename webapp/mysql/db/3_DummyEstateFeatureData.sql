@@ -1,4 +1,4 @@
-INSET INTO isuumo.estate_feature (id, estate_id) VALUES
+INSERT INTO isuumo.estate_feature (id, estate_id) VALUES
 
 (1, 1),
 (1, 23),

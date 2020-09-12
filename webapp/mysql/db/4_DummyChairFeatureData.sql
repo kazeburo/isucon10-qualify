@@ -1,4 +1,4 @@
-INSET INTO isuumo.chair_feature (id, chair_id) VALUES
+INSERT INTO isuumo.chair_feature (id, chair_id) VALUES
 
 (1, 9),
 (1, 38),

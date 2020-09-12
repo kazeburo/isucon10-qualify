@@ -44,7 +44,7 @@ sub generate_sql {
 
     open(my $out_fh, "> $output_file") or die "Cant open $output_file:$!";
     print $out_fh <<"END;";
-INSET INTO $table_name (id, $id_column_name) VALUES
+INSERT INTO $table_name (id, $id_column_name) VALUES
 END;
     my $is_first = 1;
 
