@@ -52,3 +52,11 @@ CREATE TABLE isuumo.chair_feature
     chair_id    INTEGER         NOT NULL,
     INDEX (chair_id)
 );
+
+create index idx_pricestock on isuumo.chair(price, stock);
+create index idx_pricestockpop on isuumo.chair(price, stock, popularity);
+create index idx_kindstock on isuumo.chair(kind, stock);
+create index idx_color on isuumo.chair(color);
+
+create index idx_rentpop on isuumo.estate(rent,popularity);
+create index idx_rent on isuumo.estate(rent);
