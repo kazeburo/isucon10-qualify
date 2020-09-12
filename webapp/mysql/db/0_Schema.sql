@@ -53,6 +53,7 @@ CREATE TABLE isuumo.chair_feature
     INDEX (chair_id)
 );
 
+create index idx_pop on isuumo.chair(popularity desc);
 create index idx_price on isuumo.chair(price asc);
 create index idx_pricestock on isuumo.chair(price asc, stock);
 create index idx_pricestockpop on isuumo.chair(price, stock, popularity desc);
