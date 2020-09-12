@@ -902,23 +902,19 @@ func searchEstateNazotte(c echo.Context) error {
 	}
 
 	estatesInPolygon := []Estate{}
+	query = "SELECT * FROM estate WHERE "
+	conditions := make([]string, 0)
+	params := make([]interface{}, 0)
 	for _, estate := range estatesInBoundingBox {
-		validatedEstate := Estate{}
-
-		point := fmt.Sprintf("'POINT(%f %f)'", estate.Latitude, estate.Longitude)
-		query := fmt.Sprintf(`SELECT * FROM estate WHERE id = ? AND ST_Contains(ST_PolygonFromText(%s), ST_GeomFromText(%s))`, coordinates.coordinatesToText(), point)
-		err = db.Get(&validatedEstate, query, estate.ID)
-		if err != nil {
-			if err == sql.ErrNoRows {
-				continue
-			} else {
-				c.Echo().Logger.Errorf("db access is failed on executing validate if estate is in polygon : %v", err)
-				return c.NoContent(http.StatusInternalServerError)
-			}
-		} else {
-			estatesInPolygon = append(estatesInPolygon, validatedEstate)
-		}
+		conditions = append(conditions,
+			fmt.Sprintf(`(id = ? AND ST_Contains(ST_PolygonFromText(%s), ST_GeomFromText('POINT(%f %f)')))`,
+				coordinates.coordinatesToText(),
+				estate.Latitude,
+				estate.Longitude))
+		params = append(params, estate.ID)
 	}
+	searchCondition := strings.Join(conditions, " OR ")
+	err = db.Select(&estatesInPolygon, query+searchCondition, params)
 
 	var re EstateSearchResponse
 	re.Estates = []Estate{}
