@@ -37,11 +37,11 @@ CREATE TABLE isuumo.chair
     stock       INTEGER         NOT NULL
 );
 
-create index idx_pricestock on chair(price, stock);
-create index idx_pricestockpop on chair(price, stock, popularity);
-create index idx_kindstock on chair(kind, stock);
-create index idx_color on chair(color);
+create index idx_pricestock on isuumo.chair(price, stock);
+create index idx_pricestockpop on isuumo.chair(price, stock, popularity);
+create index idx_kindstock on isuumo.chair(kind, stock);
+create index idx_color on isuumo.chair(color);
 
-create index idx_rentpop on estate(rent,popularity);
-create index idx_rent on estate(rent);
+create index idx_rentpop on isuumo.estate(rent,popularity);
+create index idx_rent on isuumo.estate(rent);
 
